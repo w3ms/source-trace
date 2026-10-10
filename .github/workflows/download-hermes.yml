@@ -1,0 +1,73 @@
+name: Download Hermes with Git metadata
+
+on:
+  push:
+    paths:
+      - '.github/workflows/download-hermes.yml'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Hermes branch or tag'
+        required: true
+        default: main
+        type: string
+      full_history:
+        description: 'Include full Git history (larger download)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone official repository
+        env:
+          HERMES_REF: ${{ inputs.ref || 'main' }}
+          FULL_HISTORY: ${{ inputs.full_history || false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git check-ref-format --branch "$HERMES_REF"
+          clone_options=(--single-branch --branch "$HERMES_REF")
+          if [[ "$FULL_HISTORY" != "true" ]]; then
+            clone_options+=(--depth 1)
+          fi
+          git clone "${clone_options[@]}" -- https://github.com/NousResearch/hermes-agent.git hermes-agent
+          git -C hermes-agent submodule update --init --recursive
+          git -C hermes-agent fsck --full
+
+      - name: Package and verify Git metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir output
+          git -C hermes-agent rev-parse HEAD > output/COMMIT.txt
+          tar -czf output/hermes-agent.tar.gz hermes-agent
+          mkdir verify
+          tar -xzf output/hermes-agent.tar.gz -C verify
+          test -d verify/hermes-agent/.git
+          git -C verify/hermes-agent fsck --full
+          test "$(git -C verify/hermes-agent rev-parse HEAD)" = "$(cat output/COMMIT.txt)"
+          (cd output && sha256sum hermes-agent.tar.gz > SHA256SUMS.txt)
+
+      - name: Upload downloadable archive
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-agent-with-git-${{ github.run_id }}
+          path: output/
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Show download link
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        shell: bash
+        run: |
+          printf '### Hermes download\n\n[Download archive](%s)\n\nContains `hermes-agent.tar.gz` (including `.git`), `COMMIT.txt`, and `SHA256SUMS.txt`. GitHub sign-in is required. Retention: 14 days.\n' "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
