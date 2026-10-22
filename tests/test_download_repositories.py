@@ -57,16 +57,16 @@ class SelectionTests(unittest.TestCase):
 
 
 class ScheduleTests(unittest.TestCase):
-    def test_alternating_dates_across_month_and_year(self):
-        for start in ("2026-10-30T03:17:00+08:00", "2026-12-31T03:17:00+08:00"):
+    def test_five_day_interval_across_month_and_year(self):
+        for start in ("2026-10-27T03:17:00+08:00", "2026-12-31T03:17:00+08:00"):
             first = datetime.fromisoformat(start)
-            for offset in range(5):
+            for offset in range(11):
                 with self.subTest(start=start, offset=offset):
-                    self.assertEqual(downloads.schedule_due(first + timedelta(days=offset)), offset % 2 == 0)
+                    self.assertEqual(downloads.schedule_due(first + timedelta(days=offset)), offset % 5 == 0)
 
     def test_utc_is_converted_to_local_date(self):
-        self.assertFalse(downloads.schedule_due(datetime.fromisoformat("2026-10-23T15:59:00+00:00")))
-        self.assertTrue(downloads.schedule_due(datetime.fromisoformat("2026-10-23T19:17:00+00:00")))
+        self.assertFalse(downloads.schedule_due(datetime.fromisoformat("2026-10-26T15:59:00+00:00")))
+        self.assertTrue(downloads.schedule_due(datetime.fromisoformat("2026-10-26T19:17:00+00:00")))
         self.assertFalse(downloads.schedule_due(datetime.fromisoformat("2026-10-20T19:17:00+00:00")))
         with self.assertRaises(ValueError):
             downloads.schedule_due(datetime(2026, 10, 22))
@@ -80,7 +80,7 @@ class ScheduleTests(unittest.TestCase):
         due, matrix = downloads.select_for_event(registry, "push", now=between)
         self.assertTrue(due)
         self.assertEqual(len(matrix["include"]), 2)
-        due, matrix = downloads.select_for_event(registry, "schedule", now=between + timedelta(days=1))
+        due, matrix = downloads.select_for_event(registry, "schedule", now=between + timedelta(days=4))
         self.assertTrue(due)
         self.assertEqual(len(matrix["include"]), 2)
 

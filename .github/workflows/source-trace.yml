@@ -3,7 +3,7 @@ run-name: Source Trace · ${{ github.event_name }} · all repositories
 
 on:
   schedule:
-    # Daily check at 03:17 UTC+8; the date gate packages every other day.
+    # Daily check at 03:17 UTC+8; the date gate packages every five days.
     - cron: '17 19 * * *'
   push:
     branches: [main]
