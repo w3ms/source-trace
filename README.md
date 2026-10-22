@@ -1,6 +1,6 @@
 # Source Trace
 
-每两天自动获取指定的公开 GitHub 仓库，生成包含 `.git` 的源码下载包。不需要手动运行，也不执行上游项目的编译或安装脚本。
+每 5 天自动获取指定的公开 GitHub 仓库，生成包含 `.git` 的源码下载包。不需要手动运行，也不执行上游项目的编译或安装脚本。
 
 ## 已配置项目
 
@@ -17,14 +17,14 @@ Pi 的原地址 `badlogic/pi-mono` 已迁移到上表地址；`semantic` 对应 
 
 ## 自动更新与下载
 
-- **每两天一次，北京 / 新加坡时间 03:17**，以 2026-10-22 为起点：10 月 22 日、24 日、26 日……。跨月、跨年仍保持隔天，不按月份重置。
+- **每 5 天一次，北京 / 新加坡时间 03:17**，以 2026-10-22 为起点：10 月 22 日、27 日、11 月 1 日……。跨月、跨年仍保持每 5 天，不按月份重置。
 - 启用本版本，以及向 `main` 提交仓库清单、打包脚本或本工作流的变更时，也会自动生成一次全部下载包。
 - 打开 [Actions](https://github.com/w3ms/source-trace/actions/workflows/source-trace.yml)，进入最近一次成功的 **Source Trace downloads** 运行，在 **Artifacts** 或各任务的 **Summary** 中点击需要的项目下载。
 - 每个仓库单独打包，最多同时处理 4 个；一个项目失败不影响其他项目。下载需要登录 GitHub，文件保留 **14 天**。
 
 下载的 ZIP 内包含 `<ID>.tar.gz`、`COMMIT.txt`、`SOURCE.json` 和 `SHA256SUMS.txt`。继续解压 `.tar.gz` 即可获得源码目录，`SOURCE.json` 记录源仓库、分支和提交版本。
 
-GitHub 每天进行一次轻量日期检查，仅在隔天目标日期执行下载。调度可能因 GitHub 负载延迟；公开仓库连续 60 天无仓库活动时，GitHub 可能自动停用定时工作流，届时需在 Actions 中重新启用。官方规则见 [schedule 说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
+GitHub 每天进行一次轻量日期检查，仅在每 5 天的目标日期执行下载。调度可能因 GitHub 负载延迟；公开仓库连续 60 天无仓库活动时，GitHub 可能自动停用定时工作流，届时需在 Actions 中重新启用。官方规则见 [schedule 说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
 
 ## 管理仓库
 

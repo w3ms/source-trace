@@ -15,16 +15,17 @@ import tempfile
 ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\Z")
 REPOSITORY = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-]*/[a-zA-Z0-9_.-]+\Z")
 SCHEDULE_ANCHOR = date(2026, 10, 22)
+SCHEDULE_INTERVAL_DAYS = 5
 SCHEDULE_TIMEZONE = timezone(timedelta(hours=8))
 
 
 def schedule_due(now=None):
-    """Alternate local dates continuously, including across month/year boundaries."""
+    """Run every five local days, including across month/year boundaries."""
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError("Schedule timestamps must have a timezone")
     days = (now.astimezone(SCHEDULE_TIMEZONE).date() - SCHEDULE_ANCHOR).days
-    return days >= 0 and days % 2 == 0
+    return days >= 0 and days % SCHEDULE_INTERVAL_DAYS == 0
 
 
 def select_for_event(registry, event_name, selection="all", ref="", now=None):
@@ -158,7 +159,7 @@ def main():
                 stream.write("matrix=" + encoded + "\n")
                 stream.write("should_run=" + str(due).lower() + "\n")
         if not due:
-            print("Skipping downloads: today is between the scheduled two-day dates")
+            print("Skipping downloads: today is between the scheduled five-day dates")
     else:
         package(
             json.loads(os.environ["REPOSITORY_ENTRY"]), args.output,
