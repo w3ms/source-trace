@@ -1,0 +1,6 @@
+{
+  "hermes-agent": {
+    "repository": "NousResearch/hermes-agent",
+    "ref": "main"
+  }
+}
