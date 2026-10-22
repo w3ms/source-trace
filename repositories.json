@@ -1,6 +1,11 @@
 {
+  "codex": {"repository": "openai/codex", "ref": "main"},
   "hermes-agent": {
     "repository": "NousResearch/hermes-agent",
     "ref": "main"
-  }
+  },
+  "pi": {"repository": "earendil-works/pi", "ref": "main"},
+  "langgraph": {"repository": "langchain-ai/langgraph", "ref": "main"},
+  "langchain": {"repository": "langchain-ai/langchain", "ref": "master"},
+  "semantic": {"repository": "microsoft/semantic-kernel", "ref": "main"}
 }

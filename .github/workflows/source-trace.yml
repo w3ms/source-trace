@@ -1,33 +1,23 @@
-name: Build repository downloads
-run-name: Download ${{ inputs.repositories }}
+name: Source Trace downloads
+run-name: Source Trace · ${{ github.event_name }} · all repositories
 
 on:
-  workflow_dispatch:
-    inputs:
-      repositories:
-        description: '仓库 ID，多个用英文逗号分隔；all 表示全部（见 repositories.json）'
-        required: true
-        default: hermes-agent
-        type: string
-      ref:
-        description: '覆盖所选仓库的分支或标签；留空使用各仓库配置'
-        required: false
-        type: string
-      full_history:
-        description: '包含所选分支的完整 Git 历史（更大、更慢）'
-        default: false
-        type: boolean
-      submodules:
-        description: '递归下载子模块'
-        default: true
-        type: boolean
-      include_lfs:
-        description: '下载 Git LFS 大文件（更大、更慢）'
-        default: false
-        type: boolean
+  schedule:
+    # Daily check at 03:17 UTC+8; the date gate packages every other day.
+    - cron: '17 19 * * *'
+  push:
+    branches: [main]
+    paths:
+      - repositories.json
+      - scripts/**
+      - .github/workflows/source-trace.yml
 
 permissions:
   contents: read
+
+concurrency:
+  group: source-trace-downloads
+  cancel-in-progress: false
 
 jobs:
   select:
@@ -35,19 +25,20 @@ jobs:
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
+      should_run: ${{ steps.select.outputs.should_run }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Select repositories
+      - name: Check schedule and select all repositories
         id: select
         env:
-          REPOSITORIES: ${{ inputs.repositories }}
-          REF_OVERRIDE: ${{ inputs.ref }}
+          REPOSITORIES: all
         run: python3 scripts/download_repositories.py select
 
   download:
     needs: select
+    if: needs.select.outputs.should_run == 'true'
     name: Download ${{ matrix.id }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -62,9 +53,9 @@ jobs:
       - name: Build and verify archive
         env:
           REPOSITORY_ENTRY: ${{ toJSON(matrix) }}
-          FULL_HISTORY: ${{ inputs.full_history }}
-          SUBMODULES: ${{ inputs.submodules }}
-          INCLUDE_LFS: ${{ inputs.include_lfs }}
+          FULL_HISTORY: 'false'
+          SUBMODULES: 'true'
+          INCLUDE_LFS: 'false'
         run: python3 scripts/download_repositories.py package
       - name: Upload downloadable archive
         id: artifact

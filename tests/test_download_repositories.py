@@ -1,4 +1,5 @@
 import hashlib
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 from pathlib import Path
@@ -53,6 +54,35 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(len(downloads.select(registry, "repo0,repo256")["include"]), 2)
         with self.assertRaises(ValueError):
             downloads.select(registry, "all")
+
+
+class ScheduleTests(unittest.TestCase):
+    def test_alternating_dates_across_month_and_year(self):
+        for start in ("2026-10-30T03:17:00+08:00", "2026-12-31T03:17:00+08:00"):
+            first = datetime.fromisoformat(start)
+            for offset in range(5):
+                with self.subTest(start=start, offset=offset):
+                    self.assertEqual(downloads.schedule_due(first + timedelta(days=offset)), offset % 2 == 0)
+
+    def test_utc_is_converted_to_local_date(self):
+        self.assertFalse(downloads.schedule_due(datetime.fromisoformat("2026-10-23T15:59:00+00:00")))
+        self.assertTrue(downloads.schedule_due(datetime.fromisoformat("2026-10-23T19:17:00+00:00")))
+        self.assertFalse(downloads.schedule_due(datetime.fromisoformat("2026-10-20T19:17:00+00:00")))
+        with self.assertRaises(ValueError):
+            downloads.schedule_due(datetime(2026, 10, 22))
+
+    def test_schedule_skips_and_push_builds_all(self):
+        registry = {"a": {"repository": "owner/one"}, "b": {"repository": "owner/two"}}
+        between = datetime(2026, 10, 23, tzinfo=timezone(timedelta(hours=8)))
+        due, matrix = downloads.select_for_event(registry, "schedule", now=between)
+        self.assertFalse(due)
+        self.assertEqual(matrix, {"include": []})
+        due, matrix = downloads.select_for_event(registry, "push", now=between)
+        self.assertTrue(due)
+        self.assertEqual(len(matrix["include"]), 2)
+        due, matrix = downloads.select_for_event(registry, "schedule", now=between + timedelta(days=1))
+        self.assertTrue(due)
+        self.assertEqual(len(matrix["include"]), 2)
 
 
 class PackageTests(unittest.TestCase):

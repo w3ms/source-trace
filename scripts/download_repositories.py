@@ -1,6 +1,7 @@
 """Select managed public GitHub repositories and build verified source archives."""
 
 import argparse
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -13,6 +14,23 @@ import tempfile
 
 ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\Z")
 REPOSITORY = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-]*/[a-zA-Z0-9_.-]+\Z")
+SCHEDULE_ANCHOR = date(2026, 10, 22)
+SCHEDULE_TIMEZONE = timezone(timedelta(hours=8))
+
+
+def schedule_due(now=None):
+    """Alternate local dates continuously, including across month/year boundaries."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("Schedule timestamps must have a timezone")
+    days = (now.astimezone(SCHEDULE_TIMEZONE).date() - SCHEDULE_ANCHOR).days
+    return days >= 0 and days % 2 == 0
+
+
+def select_for_event(registry, event_name, selection="all", ref="", now=None):
+    due = event_name != "schedule" or schedule_due(now)
+    matrix = select(registry, selection, ref) if due else {"include": []}
+    return due, matrix
 
 
 def git(*args, cwd=None):
@@ -129,12 +147,18 @@ def main():
     if args.command == "validate":
         print("Validated {} repositories".format(len(load_registry(args.config))))
     elif args.command == "select":
-        matrix = select(load_registry(args.config), os.environ.get("REPOSITORIES", "hermes-agent"), os.environ.get("REF_OVERRIDE", ""))
+        due, matrix = select_for_event(
+            load_registry(args.config), os.environ.get("GITHUB_EVENT_NAME", ""),
+            os.environ.get("REPOSITORIES", "all"), os.environ.get("REF_OVERRIDE", ""),
+        )
         encoded = json.dumps(matrix, separators=(",", ":"))
         print(encoded)
         if os.environ.get("GITHUB_OUTPUT"):
             with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
                 stream.write("matrix=" + encoded + "\n")
+                stream.write("should_run=" + str(due).lower() + "\n")
+        if not due:
+            print("Skipping downloads: today is between the scheduled two-day dates")
     else:
         package(
             json.loads(os.environ["REPOSITORY_ENTRY"]), args.output,
