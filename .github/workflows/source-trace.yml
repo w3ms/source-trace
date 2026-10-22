@@ -1,0 +1,74 @@
+name: Source Trace downloads
+run-name: Source Trace · ${{ github.event_name }} · all repositories
+
+on:
+  schedule:
+    # Daily check at 03:17 UTC+8; the date gate packages every other day.
+    - cron: '17 19 * * *'
+  push:
+    branches: [main]
+    paths:
+      - repositories.json
+      - scripts/**
+      - .github/workflows/source-trace.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-trace-downloads
+  cancel-in-progress: false
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      should_run: ${{ steps.select.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check schedule and select all repositories
+        id: select
+        env:
+          REPOSITORIES: all
+        run: python3 scripts/download_repositories.py select
+
+  download:
+    needs: select
+    if: needs.select.outputs.should_run == 'true'
+    name: Download ${{ matrix.id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and verify archive
+        env:
+          REPOSITORY_ENTRY: ${{ toJSON(matrix) }}
+          FULL_HISTORY: 'false'
+          SUBMODULES: 'true'
+          INCLUDE_LFS: 'false'
+        run: python3 scripts/download_repositories.py package
+      - name: Upload downloadable archive
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.id }}-with-git-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Show download link
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+          REPOSITORY_ID: ${{ matrix.id }}
+        run: |
+          printf '### %s\n\n[下载源码包](%s)\n\n包含 Git 信息、COMMIT.txt、SOURCE.json 和 SHA256SUMS.txt。需登录 GitHub，保留 14 天。\n' "$REPOSITORY_ID" "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,22 @@
+name: Validate download manager
+
+on:
+  push:
+    paths: ['repositories.json', 'scripts/**', 'tests/**', '.github/workflows/**']
+  pull_request:
+    paths: ['repositories.json', 'scripts/**', 'tests/**', '.github/workflows/**']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -v
+      - name: Validate complete registry
+        run: python3 scripts/download_repositories.py validate
